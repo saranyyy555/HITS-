@@ -1,0 +1,35 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "1. Run Python Server",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/server.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "2. Launch Browser (Edge)",
+            "type": "msedge",
+            "request": "launch",
+            "url": "http://127.0.0.1:3000",
+            "webRoot": "${workspaceFolder}/public"
+        },
+        {
+            "name": "3. Launch Browser (Chrome)",
+            "type": "chrome",
+            "request": "launch",
+            "url": "http://127.0.0.1:3000",
+            "webRoot": "${workspaceFolder}/public"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Run Full App (Server + Browser)",
+            "configurations": [
+                "1. Run Python Server",
+                "2. Launch Browser (Edge)"
+            ]
+        }
+    ]
+}
