@@ -60,7 +60,7 @@ def auto_generate_memos(date, sim_time):
 
 # Database query helpers
 def query_db(query, args=(), one=False):
-    conn = sqlite3.connect(DB_FILE)
+    conn = sqlite3.connect(DB_FILE, timeout=10)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     cur.execute(query, args)
@@ -69,7 +69,7 @@ def query_db(query, args=(), one=False):
     return (rv[0] if rv else None) if one else rv
 
 def execute_db(query, args=()):
-    conn = sqlite3.connect(DB_FILE)
+    conn = sqlite3.connect(DB_FILE, timeout=10)
     cur = conn.cursor()
     cur.execute(query, args)
     conn.commit()
@@ -78,31 +78,37 @@ def execute_db(query, args=()):
     return lastrowid
 
 def submit_attendance(date, period_no, teacher_id, attendance):
-    conn = sqlite3.connect(DB_FILE)
+    # busy_timeout so concurrent writers wait instead of failing immediately with "database is locked"
+    conn = sqlite3.connect(DB_FILE, timeout=10)
     cur = conn.cursor()
     success = False
     try:
-        # Start transaction
-        cur.execute("BEGIN TRANSACTION")
-        
-        # Remove existing
-        cur.execute("DELETE FROM attendance_records WHERE date = ? AND period_no = ?", (date, period_no))
-        
+        # Start transaction (IMMEDIATE grabs the write lock right away, avoiding
+        # a race where two teachers both pass the SELECT check below at the same time)
+        cur.execute("BEGIN IMMEDIATE TRANSACTION")
+
+        # Remove existing records for THIS teacher's own submission only
+        # (previously matched only date+period_no, so a second teacher on the
+        # same period would silently wipe out the first teacher's records)
+        cur.execute("DELETE FROM attendance_records WHERE date = ? AND period_no = ? AND teacher_id = ?",
+                    (date, period_no, teacher_id))
+
         # Insert records
         for record in attendance:
-            cur.execute("INSERT INTO attendance_records (date, period_no, student_id, status) VALUES (?, ?, ?, ?)",
-                        (date, period_no, record['student_id'], record['status']))
-        
-        # Upsert submission tracker
-        cur.execute("SELECT id FROM attendance_submissions WHERE date = ? AND period_no = ?", (date, period_no))
+            cur.execute("INSERT INTO attendance_records (date, period_no, teacher_id, student_id, status) VALUES (?, ?, ?, ?, ?)",
+                        (date, period_no, teacher_id, record['student_id'], record['status']))
+
+        # Upsert submission tracker, now scoped per teacher too
+        cur.execute("SELECT id FROM attendance_submissions WHERE date = ? AND period_no = ? AND teacher_id = ?",
+                    (date, period_no, teacher_id))
         row = cur.fetchone()
         if row:
-            cur.execute("UPDATE attendance_submissions SET teacher_id = ?, marked_at = ? WHERE id = ?",
-                        (teacher_id, datetime.now().isoformat(), row[0]))
+            cur.execute("UPDATE attendance_submissions SET marked_at = ? WHERE id = ?",
+                        (datetime.now().isoformat(), row[0]))
         else:
             cur.execute("INSERT INTO attendance_submissions (date, period_no, teacher_id, marked_at) VALUES (?, ?, ?, ?)",
                         (date, period_no, teacher_id, datetime.now().isoformat()))
-        
+
         conn.commit()
         success = True
     except Exception as e:
@@ -157,11 +163,18 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         date TEXT,
         period_no INTEGER,
+        teacher_id INTEGER,
         student_id INTEGER,
         status TEXT,
-        FOREIGN KEY (student_id) REFERENCES students(id)
+        FOREIGN KEY (student_id) REFERENCES students(id),
+        FOREIGN KEY (teacher_id) REFERENCES users(id)
       )
     ''')
+    # Migration: add teacher_id to attendance_records if the DB already existed without it
+    c.execute("PRAGMA table_info(attendance_records)")
+    existing_cols = [row[1] for row in c.fetchall()]
+    if 'teacher_id' not in existing_cols:
+        c.execute("ALTER TABLE attendance_records ADD COLUMN teacher_id INTEGER")
     
     # 5. Attendance Submissions Table (period submission log)
     c.execute('''
@@ -172,7 +185,7 @@ def init_db():
         teacher_id INTEGER,
         marked_at TEXT,
         FOREIGN KEY (teacher_id) REFERENCES users(id),
-        UNIQUE(date, period_no)
+        UNIQUE(date, period_no, teacher_id)
       )
     ''')
     
@@ -655,8 +668,9 @@ class AttendanceHandler(http.server.SimpleHTTPRequestHandler):
 # Run server
 if __name__ == '__main__':
     init_db()
-    class MyTCPServer(socketserver.TCPServer):
+    class MyTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         allow_reuse_address = True
+        daemon_threads = True
         
     try:
         with MyTCPServer(("", PORT), AttendanceHandler) as httpd:
