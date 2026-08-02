@@ -76,3 +76,51 @@ export async function fetchFullSchedule() {
   const res = await fetch('/api/schedule');
   return res.json();
 }
+
+// ---- Admin ----
+export async function fetchAdminOverview() {
+  const res = await fetch('/api/admin/overview');
+  return res.json();
+}
+
+export async function fetchAdminTeachers() {
+  const res = await fetch('/api/admin/teachers');
+  return res.json();
+}
+
+export async function addTeacherRequest(payload) {
+  const res = await fetch('/api/admin/teachers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+export async function fetchAdminSchedule() {
+  const res = await fetch('/api/admin/schedule');
+  return res.json();
+}
+
+export async function addScheduleRequest(payload) {
+  const res = await fetch('/api/admin/schedule', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+export async function fetchAdminStudents() {
+  const res = await fetch('/api/admin/students');
+  return res.json();
+}
+
+export async function addStudentRequest(payload) {
+  const res = await fetch('/api/admin/students', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}

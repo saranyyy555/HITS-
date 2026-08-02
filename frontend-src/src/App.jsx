@@ -3,6 +3,7 @@ import Header from './components/Header.jsx';
 import LoginSection from './components/LoginSection.jsx';
 import TeacherSection from './components/TeacherSection.jsx';
 import HODSection from './components/HODSection.jsx';
+import AdminSection from './components/AdminSection.jsx';
 import AttendanceModal from './components/AttendanceModal.jsx';
 import MemoModal from './components/MemoModal.jsx';
 import AckModal from './components/AckModal.jsx';
@@ -109,6 +110,7 @@ export default function App() {
 
   const isTeacher = currentUser?.role === 'teacher';
   const isHOD = currentUser?.role === 'hod';
+  const isAdmin = currentUser?.role === 'admin';
 
   return (
     <>
@@ -149,6 +151,12 @@ export default function App() {
             refreshToken={refreshToken}
             onOpenIssueMemo={openIssueMemo}
             onOpenViewAttendance={openViewAttendance}
+          />
+
+          <AdminSection
+            active={isAdmin}
+            currentUser={isAdmin ? currentUser : null}
+            refreshToken={refreshToken}
           />
         </main>
       </div>
