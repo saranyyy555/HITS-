@@ -22,4 +22,4 @@
 ## Notable React-specific changes (functionality preserved)
 - **Icons**: the original used the Lucide CDN script + `data-lucide` attributes re-scanned via `lucide.createIcons()` after every DOM update. React can't attach to CDN-scanned attributes across re-renders, so icons now use the `lucide-react` component library instead — same icon set, same visuals, no CDN script tag needed.
 - **DOM manipulation → state**: all the `document.getElementById(...).innerHTML = ...` calls from `app.js` became React state (`useState`) and conditional rendering. The data flow (fetch → compute stats → render) is the same, just expressed as component state instead of imperative DOM writes.
-- Everything else — endpoints, payloads, business rules (period status, overdue detection, memo auto-generation is server-side and untouched, etc.) — is preserved as-is.
+- Everything else — endpoints, payloads, business rules (period status, overdue detection, memo auto-generation is server-side and untouched, etc.) — is preserved as-is
